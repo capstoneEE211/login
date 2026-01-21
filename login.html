@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Smart Clinic Portal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Firebase v8 -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f4f8;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .card {
+      background: #fff;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      width: 380px;
+      min-height: 560px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+      margin-bottom: 20px;
+    }
+    .tabs {
+      display: flex;
+      justify-content: space-around;
+      margin-bottom: 20px;
+    }
+    .tabs button {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      cursor: pointer;
+      background: #e5e7eb;
+      color: #111;
+      font-weight: bold;
+      transition: 0.2s;
+    }
+    .tabs button.active {
+      background: #22c55e;
+      color: #fff;
+    }
+    .field { margin-bottom: 12px; }
+    label { display: block; margin-bottom: 5px; font-weight: bold; }
+    input, select, button.submit {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 1rem;
+    }
+    select {
+      background: #f0fdf4; /* Light green background */
+      border: 1px solid #22c55e;
+      color: #065f46;
+    }
+    button.submit {
+      background: #22c55e;
+      color: #fff;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    button.submit:hover {
+      background: #16a34a;
+    }
+    .hidden { display: none; }
+    #msg { margin-top: 10px; text-align: center; min-height: 22px; color: red; }
+    input:invalid { border: 2px solid red; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Smart Clinic Portal</h1>
+    <div class="tabs">
+      <button id="showSignup" class="active">Sign Up</button>
+      <button id="showLogin">Login</button>
+    </div>
+
+    <!-- Sign Up Form -->
+    <form id="signupForm">
+      <div class="field">
+        <label for="name">Full Name</label>
+        <input id="name" type="text" required>
+      </div>
+      <div class="field">
+        <label for="contact">Contact Number (use as Unique ID, starts with 60)</label>
+        <input id="contact" type="text" required pattern="60[0-9]*" title="Contact number must start with 60">
+      </div>
+      <div class="field">
+        <label for="email">Email (must be @doctor.com, @pharmacy.com, or @patient.com)</label>
+        <input id="email" type="email" required
+         pattern="^[a-zA-Z0-9._%+-]+@(doctor\.com|pharmacy\.com|patient\.com)$"
+         title="Email must end with @doctor.com, @pharmacy.com, or @patient.com">
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" type="password" required minlength="6">
+      </div>
+      <div class="field">
+        <label for="role">Role</label>
+        <select id="role" required>
+          <option value="">Choose role</option>
+          <option value="patient">Patient</option>
+          <option value="doctor">Doctor</option>
+          <option value="pharmacy">Pharmacy</option>
+        </select>
+      </div>
+      <button type="submit" class="submit">Sign Up</button>
+    </form>
+
+    <!-- Login Form -->
+    <form id="loginForm" class="hidden">
+      <div class="field">
+        <label for="loginEmail">Email</label>
+        <input id="loginEmail" type="email" required>
+      </div>
+      <div class="field">
+        <label for="loginPassword">Password</label>
+        <input id="loginPassword" type="password" required>
+      </div>
+      <div class="field">
+        <label for="loginRole">Role</label>
+        <select id="loginRole" required>
+          <option value="">Choose role</option>
+          <option value="patient">Patient</option>
+          <option value="doctor">Doctor</option>
+          <option value="pharmacy">Pharmacy</option>
+        </select>
+      </div>
+      <button type="submit" class="submit">Login</button>
+    </form>
+
+    <p id="msg"></p>
+  </div>
+
+  <script>
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyDU2RWkps0wf7HJXgZy1a9u5_zOL5wp9J4",
+      authDomain: "smartclinic-f5263.firebaseapp.com",
+      databaseURL: "https://smartclinic-f5263-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "smartclinic-f5263",
+      storageBucket: "smartclinic-f5263.appspot.com",
+      messagingSenderId: "1085965413958",
+      appId: "1:1085965413958:web:18be38ec0f29686e36e447"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.database();
+
+    const signupForm = document.getElementById("signupForm");
+    const loginForm = document.getElementById("loginForm");
+    const msg = document.getElementById("msg");
+
+    const showSignupBtn = document.getElementById("showSignup");
+    const showLoginBtn = document.getElementById("showLogin");
+
+    // Toggle tabs
+    showSignupBtn.addEventListener("click", () => {
+      signupForm.classList.remove("hidden");
+      loginForm.classList.add("hidden");
+      showSignupBtn.classList.add("active");
+      showLoginBtn.classList.remove("active");
+      msg.textContent = "";
+    });
+
+    showLoginBtn.addEventListener("click", () => {
+      loginForm.classList.remove("hidden");
+      signupForm.classList.add("hidden");
+      showLoginBtn.classList.add("active");
+      showSignupBtn.classList.remove("active");
+      msg.textContent = "";
+    });
+
+    // Sign Up
+    signupForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = document.getElementById("name").value.trim();
+      const contact = document.getElementById("contact").value.trim();
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      const role = document.getElementById("role").value;
+
+      const allowedDomains = ["doctor.com", "pharmacy.com", "patient.com"];
+      const emailDomain = email.split("@")[1];
+      if (!allowedDomains.includes(emailDomain)) {
+        msg.textContent = "⚠️ Email must be @doctor.com, @pharmacy.com, or @patient.com";
+        return;
+      }
+
+      try {
+        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+        const uid = userCredential.user.uid;
+
+        // Save to users/
+        await db.ref("users/" + uid).set({
+          fullName: name,
+          contactNumber: contact,
+          email: email,
+          role: role,
+          uniqueID: contact
+        });
+
+        // Save to role-specific node
+        if (role === "patient") {
+          await db.ref("patients/" + contact).set({
+            name: name,
+            phone: contact,
+            email: email
+          });
+        } else if (role === "doctor") {
+          await db.ref("doctors/" + uid).set({
+            name: name,
+            phone: contact,
+            email: email
+          });
+        } else if (role === "pharmacy") {
+          await db.ref("pharmacy/" + uid).set({
+            name: name,
+            phone: contact,
+            email: email
+          });
+        }
+
+        msg.style.color = "green";
+        msg.textContent = "Sign up successful! You can now log in.";
+        signupForm.reset();
+      } catch (err) {
+        msg.style.color = "red";
+        msg.textContent = "Error: " + err.message;
+      }
+    });
+
+    // Login
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("loginEmail").value.trim();
+      const password = document.getElementById("loginPassword").value;
+      const selectedRole = document.getElementById("loginRole").value;
+
+      try {
+        const userCredential = await auth.signInWithEmailAndPassword(email, password);
+        const uid = userCredential.user.uid;
+
+        const snapshot = await db.ref("users/" + uid).once("value");
+        const userData = snapshot.val();
+
+        if (!userData) {
+          msg.style.color = "red";
+          msg.textContent = "User data not found in database.";
+          return;
+        }
+
+        if (userData.role !== selectedRole) {
+          msg.style.color = "red";
+          msg.textContent = "⚠️ Selected role does not match your account role!";
+          return;
+        }
+
+        // Redirect based on role
+        if (selectedRole === "patient") {
+          window.location.href = "userinterface.html";
+        } else if (selectedRole === "doctor") {
+          window.location.href = "doctorinterface.html";
+        } else if (selectedRole === "pharmacy") {
+          window.location.href = "pharmacyinterface.html";
+        }
+
+      } catch (err) {
+        msg.style.color = "red";
+        msg.textContent = "Login failed: " + err.message;
+      }
+    });
+  </script>
+</body>
+</html>
